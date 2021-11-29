@@ -1,12 +1,13 @@
 import socket
 import argparse
 from typing import List, Tuple
+from _thread import start_new_thread
 
 """
 https://www.geeksforgeeks.org/simple-chat-room-using-python/
 """
 
-clients: Tuple[str, List[socket.socket]] = []
+clients: List[socket.socket] = []
 
 
 def create_server(host, port) -> socket.socket:
@@ -17,12 +18,16 @@ def create_server(host, port) -> socket.socket:
 
 
 def clientthread(conn: socket.socket):
-    conn.send("Bem vindo ao chat!")
+    conn.send(b"Bem vindo ao chat!")
 
     while True:
         try:
             message = conn.recv(2048)
-            print(message)
+            if message:
+                print(message)
+                broadcast(message, conn)
+            else:
+                remove(conn)
         except:
             continue
 
@@ -34,11 +39,12 @@ def broadcast(message: str, conn: socket.socket):
                 client.send(message)
             except:
                 client.close()
+                remove(clients)
 
 
 def remove(conn):
     if conn in clients:
-        list
+        clients.remove(conn)
 
 
 def get_parse() -> argparse.ArgumentParser:
@@ -54,7 +60,11 @@ def main():
     parser = get_parse()
     args = parser.parse_args()
     server = create_server(args.host, args.port)
-    server.close()
+    server.listen(100)
+    while True:
+        conn, addr = server.accept()
+        clients.append(conn)
+        start_new_thread(clientthread, (conn,))
 
 
 if __name__ == "__main__":
