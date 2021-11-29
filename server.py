@@ -2,12 +2,14 @@ import socket
 import argparse
 from typing import List, Tuple
 from _thread import start_new_thread
+from communication import Client
 
 """
 https://www.geeksforgeeks.org/simple-chat-room-using-python/
 """
 
-clients: List[socket.socket] = []
+
+clients: List[Client] = []
 
 
 def create_server(host, port) -> socket.socket:
@@ -17,17 +19,17 @@ def create_server(host, port) -> socket.socket:
     return server
 
 
-def clientthread(conn: socket.socket):
-    conn.send(b"Bem vindo ao chat!")
+def clientthread(c: Client):
+    c.conn.send(b"Bem vindo ao chat!")
 
     while True:
         try:
-            message = conn.recv(2048)
+            message = c.conn.recv(2048)
             if message:
                 print(message)
-                broadcast(message, conn)
+                broadcast(message, c.conn)
             else:
-                remove(conn)
+                remove(c.conn)
         except:
             continue
 
