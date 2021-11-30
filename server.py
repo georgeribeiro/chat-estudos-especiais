@@ -1,15 +1,17 @@
 import socket
 import argparse
-from typing import List, Tuple
+from typing import List, Tuple, Any
 from _thread import start_new_thread
-from communication import Client
 
 """
 https://www.geeksforgeeks.org/simple-chat-room-using-python/
 """
 
+HOST = "127.0.0.1"
+PORT = 5555
 
-clients: List[Client] = []
+
+clients: List[Tuple[socket.socket, Any]] = []
 
 
 def create_server(host, port) -> socket.socket:
@@ -19,17 +21,36 @@ def create_server(host, port) -> socket.socket:
     return server
 
 
-def clientthread(c: Client):
-    c.conn.send(b"Bem vindo ao chat!")
+def auth(conn: socket.socket, username: str) -> bool:
+    for i in range(len(clients)):
+        if clients[i][0] == conn:
+            clients[i] = (conn, username)
+            return True
+    return False
+
+
+def clientthread(conn: socket.socket):
 
     while True:
         try:
-            message = c.conn.recv(2048)
+            message = conn.recv(2048)
             if message:
-                print(message)
-                broadcast(message, c.conn)
+                message = message.decode()
+                if message.startswith("AUTH"):
+                    import ipdb
+
+                    ipdb.set_trace()
+                    try:
+                        _, username = message.split(" ")
+                        if auth(conn, username):
+                            ret = b"OK"
+                        else:
+                            ret = b"ERROR connection not found"
+                    except:
+                        ret = b"ERROR invalid auth message"
+                    conn.send(ret)
             else:
-                remove(c.conn)
+                remove(conn)
         except:
             continue
 
@@ -49,23 +70,12 @@ def remove(conn):
         clients.remove(conn)
 
 
-def get_parse() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Servidor do chat para mostrar algoritmos de criptografia"
-    )
-    parser.add_argument("-H", "--host", type=str, default="localhost")
-    parser.add_argument("-p", "--port", type=int, required=True)
-    return parser
-
-
 def main():
-    parser = get_parse()
-    args = parser.parse_args()
-    server = create_server(args.host, args.port)
+    server = create_server(HOST, PORT)
     server.listen(100)
     while True:
         conn, addr = server.accept()
-        clients.append(conn)
+        clients.append((conn, None))
         start_new_thread(clientthread, (conn,))
 
 

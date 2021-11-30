@@ -3,14 +3,8 @@ import argparse
 import sys
 import select
 
-
-def get_parse() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Servidor do chat para mostrar algoritmos de criptografia"
-    )
-    parser.add_argument("-H", "--host", type=str, default="localhost")
-    parser.add_argument("-p", "--port", type=int, required=True)
-    return parser
+HOST = "127.0.0.1"
+PORT = 5555
 
 
 def connect_to_server(host: str, port: int) -> socket.socket:
@@ -19,24 +13,36 @@ def connect_to_server(host: str, port: int) -> socket.socket:
     return server
 
 
+def auth(server: socket.socket, username):
+    message = f"AUTH {username}"
+    message = message.encode()
+    server.send(message)
+    data = server.recv(2048)
+    sys.stdout.write(data.decode())
+    sys.stdout.flush()
+
+
 def main():
-    parser = get_parse()
-    args = parser.parse_args()
-    server = connect_to_server(args.host, args.port)
-    while True:
-        sockets_list = [sys.stdin, server]
+    server = connect_to_server(HOST, PORT)
+    sys.stdout.write("Username: ")
+    sys.stdout.flush()
+    username = sys.stdin.readline().rstrip("\n")
+    auth(server, username)
 
-        read_sockets, write_socket, error_socket = select.select(sockets_list, [], [])
+    # while True:
+    #     sockets_list = [sys.stdin, server]
 
-        for sock in read_sockets:
-            if sock == server:
-                message = sock.recv(2048)
-                print(message)
-            else:
-                message = sys.stdin.readline()
-                server.send(message.encode())
-                sys.stdout.write(message)
-                sys.stdout.flush()
+    #     read_sockets, write_socket, error_socket = select.select(sockets_list, [], [])
+
+    #     for sock in read_sockets:
+    #         if sock == server:
+    #             message = sock.recv(2048)
+    #             print(message)
+    #         else:
+    #             message = sys.stdin.readline()
+    #             server.send(message.encode())
+    #             sys.stdout.write(message)
+    #             sys.stdout.flush()
     server.close()
 
 

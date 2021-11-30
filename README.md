@@ -17,8 +17,8 @@ As ações previstas no sistema são:
 
 ```AUTH username```
 
-- AUTH: ação de autenticar o usuário no sistema
-- username: nome do usuário a ser autenticado
+- **AUTH**: ação de autenticar o usuário no sistema
+- **username**: nome do usuário a ser autenticado
 
 ### HANDSHAKE
 
@@ -43,3 +43,18 @@ As ações previstas no sistema são:
 - **username**: repector da mensagem
 - **message**: mensagem a ser enviada
 - **signature**: assinatura da mensagem
+
+
+## Retornos do server
+
+### OK
+
+```OK```
+
+Uma ação que foi realizada com sucesso e não há outro retorno retornará OK ao cliente.
+
+### ERROR
+
+```ERROR message```
+
+Uma ação que não foi realizada com sucesso retornará ERROR e a mensagem de erro ao cliente.
