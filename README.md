@@ -35,3 +35,11 @@ As ações previstas no sistema são:
 - **SEND**: ação de enviar uma mensagem
 - **username**: receptor da mensagem
 - **message**: mensagem a ser enviada
+
+### SIGN AND END
+
+```SIGNSEND username message signature```
+- **SIGNSEND**: enviar uma mensagem assinada
+- **username**: repector da mensagem
+- **message**: mensagem a ser enviada
+- **signature**: assinatura da mensagem
