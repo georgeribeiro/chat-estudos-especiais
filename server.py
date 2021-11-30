@@ -1,5 +1,4 @@
 import socket
-import argparse
 from typing import List, Tuple, Any
 from _thread import start_new_thread
 
@@ -29,17 +28,27 @@ def auth(conn: socket.socket, username: str) -> bool:
     return False
 
 
-def clientthread(conn: socket.socket):
+def get_conn_by_username(username) -> socket.socket:
+    for c in clients:
+        if c[1] == username:
+            return c[0]
+    return None
 
+
+def get_username_by_conn(conn) -> str:
+    for c in clients:
+        if c[0] == conn:
+            return c[1]
+    return None
+
+
+def clientthread(conn: socket.socket):
     while True:
         try:
             message = conn.recv(2048)
             if message:
                 message = message.decode()
                 if message.startswith("AUTH"):
-                    import ipdb
-
-                    ipdb.set_trace()
                     try:
                         _, username = message.split(" ")
                         if auth(conn, username):
@@ -49,6 +58,19 @@ def clientthread(conn: socket.socket):
                     except:
                         ret = b"ERROR invalid auth message"
                     conn.send(ret)
+                elif message.startswith("HANDSHAKE"):
+                    try:
+                        _, username, pubkey = message.split(" ")
+                        other = get_conn_by_username(username)
+                        if other is None:
+                            ret = b"ERROR username not found"
+                            conn.send(ret)
+                        else:
+                            msg = f"HANDSHAKEREQUEST {get_username_by_conn(conn)} {pubkey}"
+                            ret = msg.encode()
+                            other.send(ret)
+                    except:
+                        pass
             else:
                 remove(conn)
         except:

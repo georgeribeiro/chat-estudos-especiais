@@ -13,13 +13,12 @@ def connect_to_server(host: str, port: int) -> socket.socket:
     return server
 
 
-def auth(server: socket.socket, username):
+def auth(server: socket.socket, username) -> bool:
     message = f"AUTH {username}"
     message = message.encode()
     server.send(message)
     data = server.recv(2048)
-    sys.stdout.write(data.decode())
-    sys.stdout.flush()
+    return data.decode().rstrip("\n") == "OK"
 
 
 def main():
@@ -27,7 +26,9 @@ def main():
     sys.stdout.write("Username: ")
     sys.stdout.flush()
     username = sys.stdin.readline().rstrip("\n")
-    auth(server, username)
+    if not auth(server, username):
+        sys.stdin.write("Authentication failed")
+        sys.stdin.flush()
 
     # while True:
     #     sockets_list = [sys.stdin, server]

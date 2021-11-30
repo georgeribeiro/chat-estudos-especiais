@@ -1,6 +1,5 @@
 # Chat para demonstração de criptografia da disciplina de Estudos Especiais - PPGGEC
 
-
 O sistema deverá trabalhar usando sockets para comunicação e a interface de comunicação deverá
 seguir uma ordem simples de AÇÂO + parametros, como representando uma função.
 
