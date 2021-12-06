@@ -95,6 +95,7 @@ def remove(conn):
 def main():
     server = create_server(HOST, PORT)
     server.listen(100)
+    print(f"Server running in port {PORT}")
     while True:
         conn, addr = server.accept()
         clients.append((conn, None))
