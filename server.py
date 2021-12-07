@@ -1,6 +1,6 @@
 import socket
 from typing import List, Tuple, Any
-from _thread import start_new_thread
+import threading
 
 """
 https://www.geeksforgeeks.org/simple-chat-room-using-python/
@@ -10,36 +10,36 @@ HOST = "127.0.0.1"
 PORT = 5555
 
 
-clients: List[Tuple[socket.socket, Any]] = []
+class Client:
+    def __init__(self, conn: socket.socket, addr: Any, username: str = None) -> None:
+        self.conn = conn
+        self.username = username
 
 
-def create_server(host, port) -> socket.socket:
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((host, port))
-    return server
+class Server:
+    def __init__(self, host: str, port: int) -> None:
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._sock.bind((host, port))
+        self._clients: List[Client] = []
 
+    def auth(self, conn: socket.socket, username: str) -> bool:
+        for c in self._clients:
+            if c.conn == conn:
+                c.username = username
+                return True
+        return False
 
-def auth(conn: socket.socket, username: str) -> bool:
-    for i in range(len(clients)):
-        if clients[i][0] == conn:
-            clients[i] = (conn, username)
-            return True
-    return False
+    def listen(self):
+        self._sock.listen(100)
+        while True:
+            conn, addr = self._sock.accept()
+            c = Client(conn, addr)
+            self._clients.append(c)
+            threading.Thread(target=self._clientthread, args=(c))
 
-
-def get_conn_by_username(username) -> socket.socket:
-    for c in clients:
-        if c[1] == username:
-            return c[0]
-    return None
-
-
-def get_username_by_conn(conn) -> str:
-    for c in clients:
-        if c[0] == conn:
-            return c[1]
-    return None
+    def _clientthread(c: Client):
+        pass
 
 
 def clientthread(conn: socket.socket):
