@@ -54,6 +54,7 @@ def main():
         print("Generating RSA private and public key")
         priv, pub = generate_rsa_keys(username, 2048)
         save_keys(priv, pub, username)
+
     server.close()
 
 
