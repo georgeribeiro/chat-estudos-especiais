@@ -1,6 +1,5 @@
-from contextlib import AbstractAsyncContextManager
 import socket
-from typing import List, Tuple, Any
+from typing import List, Any
 import threading
 
 """
@@ -11,6 +10,7 @@ https://www.geeksforgeeks.org/simple-chat-room-using-python/
 class Client:
     def __init__(self, conn: socket.socket, addr: Any, username: str = None) -> None:
         self.conn = conn
+        self.addr = addr
         self.username = username
 
 
