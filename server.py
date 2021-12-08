@@ -1,3 +1,4 @@
+from contextlib import AbstractAsyncContextManager
 import socket
 from typing import List, Tuple, Any
 import threading
@@ -5,9 +6,6 @@ import threading
 """
 https://www.geeksforgeeks.org/simple-chat-room-using-python/
 """
-
-HOST = "127.0.0.1"
-PORT = 5555
 
 
 class Client:
@@ -30,76 +28,39 @@ class Server:
                 return True
         return False
 
-    def listen(self):
-        self._sock.listen(100)
+    def listen(self, max_connections):
+        self._sock.listen(max_connections)
         while True:
             conn, addr = self._sock.accept()
             c = Client(conn, addr)
             self._clients.append(c)
             threading.Thread(target=self._clientthread, args=(c))
 
-    def _clientthread(c: Client):
-        pass
+    def _response(self, c: Client, code: str, message: str = ""):
+        data = " ".join([s for s in (code, message) if s])
+        c.conn.send(data.encode())
 
-
-def clientthread(conn: socket.socket):
-    while True:
-        try:
-            message = conn.recv(2048)
-            if message:
-                message = message.decode()
-                if message.startswith("AUTH"):
-                    try:
-                        _, username = message.split(" ")
-                        if auth(conn, username):
-                            ret = b"OK"
-                        else:
-                            ret = b"ERROR connection not found"
-                    except:
-                        ret = b"ERROR invalid auth message"
-                    conn.send(ret)
-                elif message.startswith("HANDSHAKE"):
-                    try:
-                        _, username, pubkey = message.split(" ")
-                        other = get_conn_by_username(username)
-                        if other is None:
-                            ret = b"ERROR username not found"
-                            conn.send(ret)
-                        else:
-                            msg = f"HANDSHAKEREQUEST {get_username_by_conn(conn)} {pubkey}"
-                            ret = msg.encode()
-                            other.send(ret)
-                    except:
-                        pass
-            else:
-                remove(conn)
-        except:
-            continue
-
-
-def broadcast(message: str, conn: socket.socket):
-    for client in clients:
-        if client != conn:
+    def _clientthread(self, c: Client):
+        while True:
             try:
-                client.send(message)
-            except:
-                client.close()
-                remove(clients)
-
-
-def remove(conn):
-    if conn in clients:
-        clients.remove(conn)
+                data = c.conn.recv(2048)
+                if data:
+                    message = data.decode()
+                    match message.split():
+                        case ["AUTH", username]:
+                            c.username = username
+                            self._response(c, "OK")
+                        case _:
+                            self._response(c, "ERROR", "invalid action")
+            except Exception as e:
+                print(e)
+                continue
 
 
 def main():
-    server = create_server(HOST, PORT)
+    server = Server("", 5555)
+    print(f"Server running in port 5555")
     server.listen(100)
-    print(f"Server running in port {PORT}")
-    while True:
-        conn, addr = server.accept()
-        clients.append((conn, None))
-        start_new_thread(clientthread, (conn,))
 
 
 if __name__ == "__main__":
