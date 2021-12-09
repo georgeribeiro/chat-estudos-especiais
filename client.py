@@ -55,12 +55,12 @@ class User:
         with open(HERE.joinpath(f"{self.username}.pub"), "w") as pub_file:
             print(f"{self.pubkey.exportKey().decode()}", file=pub_file)
 
-    def exist_keys(self):
+    def exists_keys(self):
         path = HERE.joinpath(f"{self.username}.key")
         return path.exists()
 
     def load_keys(self) -> bool:
-        if self.exist_keys():
+        if self.exists_keys():
             with self.privkey_file().open("r") as f:
                 pkey = f.read()
                 self._privkey = RSA.importKey(pkey)
@@ -72,8 +72,8 @@ class User:
         self.privkey_file().unlink()
         self.pubkey_file().unlink()
 
-    def print_keys(self):
-        print(self.privkey)
+    def print_keys(self) -> str:
+        return self.privkey.exportKey().decode() + "\n\n" + self.pubkey.exportKey().decode() + "\n"
 
     @property
     def privkey(self) -> RSA._RSAobj:
@@ -88,6 +88,7 @@ class User:
 
     def pubkey_file(self) -> pathlib.Path:
         return HERE.joinpath(f"{self.username}.pub")
+
 
 def clear():
     so = platform.system()
@@ -128,7 +129,7 @@ Selecione uma opção: """
                 if client.username is None:
                     input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
                     continue
-                if client.user.exist_keys():
+                if client.user.exists_keys():
                     if input("As chaves pública e privada já foram geradas. Deseja excluir e gerá-las novamente? (S/n) ") in ["S", "s"]:
                         client.user.remove_keys()
                         generate_keys(client)
@@ -138,17 +139,23 @@ Selecione uma opção: """
                 if client.username is None:
                     input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
                     continue
-                if not client.user.load_keys():
-                    input('Chaves não geradas ainda. Por favor gere pela opção 2!')
+                if client.user.load_keys():
+                    input('Chaves carregadas com sucesso!')
                     continue
+                else:
+                    input('Chaves não geradas ainda. Por favor gere pela opção 2!')
             case "4":
                 if client.username is None:
                     input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
                     continue
-                if not client.user.exist_keys():
+                if not client.user.exists_keys():
                     input('Chaves não geradas ainda. Por favor gere pela opção 2!')
                     continue
-                client.user.print_keys()
+                if client.user.privkey is None:
+                    input('Chaves não geradas ou não carregadas pelo usuário! Por favor use opção 2 pra gerar ou 3 pra carregar!')
+                    continue
+                clear()
+                input(client.user.print_keys())
             case "6":
                 break
 
