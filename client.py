@@ -6,13 +6,15 @@ from Crypto import Random
 from pathlib import Path
 import os
 import platform
+import base64
+
+from Crypto.PublicKey.pubkey import pubkey
 
 HERE = Path(__file__).resolve().parent
 
 
 class Client:
     def __init__(self) -> None:
-        self.username: str = None
         self.user: User = None
         self._server: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -20,24 +22,28 @@ class Client:
         self._server.connect((host, port))
         threading.Thread(target=self._listen_server)
 
-    def send(self, action: str, message: str):
-        data = " ".join([s for s in (action, message) if s])
+    def send(self, action: str, data: str):
+        data = " ".join([s for s in (action, data) if s])
         self._server.send(data.encode())
 
     def auth(self, username):
-        self.username = username
         self.user = User(username)
         self.send("AUTH", username)
 
     def handshake(self, username):
-        pass
+        key = self.user.pubkey.exportKey()
+        key64 = base64.b64encode(key).decode()
+        data = f"{username} {key64}"
+        self.send("HANDSHAKE", data)
 
     def _listen_server(self):
         while True:
             data = self._server.recv(2048)
             message = data.decode()
             if message:
-                print(message)
+                match message.split():
+                    case ["HANDSHAKE", username, pubkey]:
+                        pass
 
 
 class User:
@@ -113,8 +119,8 @@ def menu(client: Client):
 Selecione uma opção: """
     while True:
         clear()
-        if client.username:
-            print(f"Bem vindo {client.username}!", end=" ")
+        if client.user is not None:
+            print(f"Bem vindo {client.user.username}!", end=" ")
         opt = input(menu)
         match opt:
             case "1":
@@ -126,7 +132,7 @@ Selecione uma opção: """
                     client.auth(username)
                     break
             case "2":
-                if client.username is None:
+                if client.user is None:
                     input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
                     continue
                 if client.user.exists_keys():
@@ -136,7 +142,7 @@ Selecione uma opção: """
                 else:
                     generate_keys(client)
             case "3":
-                if client.username is None:
+                if client.user is None:
                     input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
                     continue
                 if client.user.load_keys():
@@ -145,7 +151,7 @@ Selecione uma opção: """
                 else:
                     input('Chaves não geradas ainda. Por favor gere pela opção 2!')
             case "4":
-                if client.username is None:
+                if client.user is None:
                     input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
                     continue
                 if not client.user.exists_keys():
@@ -156,6 +162,22 @@ Selecione uma opção: """
                     continue
                 clear()
                 input(client.user.print_keys())
+            case "5":
+                if client.user is None:
+                    input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
+                    continue
+                if not client.user.exists_keys():
+                    input('Chaves não geradas ainda. Por favor gere pela opção 2!')
+                    continue
+                if client.user.privkey is None:
+                    input('Chaves não geradas ou não carregadas pelo usuário! Por favor use opção 2 pra gerar ou 3 pra carregar!')
+                    continue
+                while True:
+                    username = input("Digite o nome do outro usuário: ")
+                    if username == "":
+                        continue
+                    break
+                client.handshake(username)
             case "6":
                 break
 

@@ -21,13 +21,6 @@ class Server:
         self._sock.bind((host, port))
         self._clients: List[Client] = []
 
-    def auth(self, conn: socket.socket, username: str) -> bool:
-        for c in self._clients:
-            if c.conn == conn:
-                c.username = username
-                return True
-        return False
-
     def listen(self, max_connections):
         self._sock.listen(max_connections)
         while True:
@@ -36,7 +29,7 @@ class Server:
             self._clients.append(c)
             threading.Thread(target=self._clientthread, args=(c))
 
-    def _response(self, c: Client, code: str, message: str = ""):
+    def response(self, c: Client, code: str, message: str = ""):
         data = " ".join([s for s in (code, message) if s])
         c.conn.send(data.encode())
 
@@ -49,9 +42,19 @@ class Server:
                     match message.split():
                         case ["AUTH", username]:
                             c.username = username
-                            self._response(c, "OK")
+                            self.response(c, "OK")
+                        case ["HANDSHAKE", username, pubkey]:
+                            if c.username == username:
+                                self.response(c, "ERROR", "O usuário não pode fazer handshake consigo mesmo")
+                                continue
+                            for o in self._clients:
+                                if o.username == username:
+                                    self.response(o, "HANDSHAKE", pubkey)
+                            else:
+                                self.response(c, "ERROR", "Usuário não encontrado")
+                                continue
                         case _:
-                            self._response(c, "ERROR", "invalid action")
+                            self.response(c, "ERROR", "Ação inválida")
             except Exception as e:
                 print(e)
                 continue
