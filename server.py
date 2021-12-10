@@ -49,7 +49,8 @@ class Server:
                                 continue
                             for o in self._clients:
                                 if o.username == username:
-                                    self.response(o, "HANDSHAKE", pubkey)
+                                    data = f"{c.username} {pubkey}"
+                                    self.response(o, "HANDSHAKE", data)
                             else:
                                 self.response(c, "ERROR", "Usuário não encontrado")
                                 continue

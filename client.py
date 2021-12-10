@@ -17,6 +17,7 @@ class Client:
     def __init__(self) -> None:
         self.user: User = None
         self._server: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._connected = {}
 
     def connect(self, host: str, port: int) -> None:
         self._server.connect((host, port))
@@ -44,6 +45,8 @@ class Client:
                 match message.split():
                     case ["HANDSHAKE", username, pubkey]:
                         pass
+                    case ["ERROR", message]:
+                        input(message)
 
 
 class User:
