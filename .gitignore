@@ -2,3 +2,5 @@ __pycache__
 *.pyc
 *.key
 *.pub
+venv
+.vscode

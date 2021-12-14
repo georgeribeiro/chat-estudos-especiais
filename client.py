@@ -1,14 +1,14 @@
 import pathlib
 import socket
-import threading
+import sys
 from Crypto.PublicKey import RSA
 from Crypto import Random
 from pathlib import Path
 import os
 import platform
 import base64
+import threading
 
-from Crypto.PublicKey.pubkey import pubkey
 
 HERE = Path(__file__).resolve().parent
 
@@ -18,14 +18,19 @@ class Client:
         self.user: User = None
         self._server: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._connected = {}
-
+        
     def connect(self, host: str, port: int) -> None:
         self._server.connect((host, port))
-        threading.Thread(target=self._listen_server)
+        t = threading.Thread(target=self._listen_server, args=())
+        t.daemon = True
+        t.start()
+
+    def close(self):
+        self._server.close()
 
     def send(self, action: str, data: str):
         data = " ".join([s for s in (action, data) if s])
-        self._server.send(data.encode())
+        self._server.sendall(data.encode())
 
     def auth(self, username):
         self.user = User(username)
@@ -44,8 +49,9 @@ class Client:
             if message:
                 match message.split():
                     case ["HANDSHAKE", username, pubkey]:
-                        pass
+                        input("nao sei")
                     case ["ERROR", message]:
+                        clear()
                         input(message)
 
 
@@ -182,6 +188,7 @@ Selecione uma opção: """
                     break
                 client.handshake(username)
             case "6":
+                client.close()
                 break
 
 

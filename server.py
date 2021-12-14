@@ -1,17 +1,19 @@
 import socket
-from typing import List, Any
 import threading
+from typing import List, Any
 
 """
 https://www.geeksforgeeks.org/simple-chat-room-using-python/
 """
-
 
 class Client:
     def __init__(self, conn: socket.socket, addr: Any, username: str = None) -> None:
         self.conn = conn
         self.addr = addr
         self.username = username
+
+    def __eq__(self, __o: "Client") -> bool:
+        return self.conn == __o.conn
 
 
 class Server:
@@ -27,11 +29,11 @@ class Server:
             conn, addr = self._sock.accept()
             c = Client(conn, addr)
             self._clients.append(c)
-            threading.Thread(target=self._clientthread, args=(c))
-
+            threading.Thread(target=self._clientthread, args=(c,)).start()
+            
     def response(self, c: Client, code: str, message: str = ""):
         data = " ".join([s for s in (code, message) if s])
-        c.conn.send(data.encode())
+        c.conn.sendall(data.encode())
 
     def _clientthread(self, c: Client):
         while True:
@@ -51,14 +53,20 @@ class Server:
                                 if o.username == username:
                                     data = f"{c.username} {pubkey}"
                                     self.response(o, "HANDSHAKE", data)
+                                    break
                             else:
                                 self.response(c, "ERROR", "Usuário não encontrado")
-                                continue
                         case _:
                             self.response(c, "ERROR", "Ação inválida")
+                else:
+                    c.conn.close()
+                    self._clients.remove(c)
+                    break
             except Exception as e:
                 print(e)
-                continue
+                c.conn.close()
+                self._clients.remove(c)
+                break
 
 
 def main():
