@@ -1,6 +1,6 @@
 import pathlib
 import socket
-import sys
+from sys import builtin_module_names, flags
 from Crypto.PublicKey import RSA
 from Crypto import Random
 from pathlib import Path
@@ -8,6 +8,9 @@ import os
 import platform
 import base64
 import threading
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
 
 
 HERE = Path(__file__).resolve().parent
@@ -18,6 +21,7 @@ class Client:
         self.user: User = None
         self._server: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._connected = {}
+        self.window: ChatWindow = None
         
     def connect(self, host: str, port: int) -> None:
         self._server.connect((host, port))
@@ -50,9 +54,10 @@ class Client:
                 match message.split():
                     case ["HANDSHAKE", username, pubkey]:
                         input("nao sei")
+                    case ["OK"]:
+                        self.window.insert_message(f"Usuário {self.user.username} autenticado com sucesso!")
                     case ["ERROR", message]:
-                        clear()
-                        input(message)
+                        self.window.insert_message(message)
 
 
 class User:
@@ -191,11 +196,77 @@ Selecione uma opção: """
                 client.close()
                 break
 
+class MessageDialog(Gtk.Dialog):
+    def __init__(self, parent, title="", message = "") -> None:
+        super().__init__(title, transient_for=parent, flags=0)
+        self.add_buttons(
+            Gtk.STOCK_OK, Gtk.ResponseType.OK
+        )
+        self.set_default_size(150, 100)
+        label = Gtk.Label(label=message)
+        box = self.get_content_area()
+        box.add(label)
+        self.set_modal(True)
+        self.show_all()
+
+
+class InputDialog(Gtk.Dialog):
+    def __init__(self, parent, title="") -> None:
+        super().__init__(title, transient_for=parent, flags=0)
+        self.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OK, Gtk.ResponseType.OK
+        )
+        self.set_default_size(150, 100)
+        self.entry = Gtk.Entry()
+        box = self.get_content_area()
+        self.set_modal(True)
+        box.add(self.entry)
+        self.show_all()
+
+
+class ChatWindow:
+    def __init__(self, client: Client) -> None:
+        self.client = client
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file("chat.glade")
+        self.window = self.builder.get_object("application")
+        self.txt_message = self.builder.get_object("txt_message")
+        self.builder.connect_signals(self)
+
+    def onDestroy(self, *args):
+        Gtk.main_quit()
+
+    def insert_message(self, message):
+        buf = self.txt_message.get_buffer()
+        end_iter = buf.get_end_iter()
+        buf.insert(end_iter, message + "\n")
+
+    def btn_sair_on_click(self, button):
+        Gtk.main_quit()
+
+    def btn_autenticar_on_click(self, button):
+        dlg = InputDialog(self.window, "Nome do usuário:")
+        resp = dlg.run()
+        match resp:
+            case Gtk.ResponseType.OK:
+                username = dlg.entry.get_text()
+                self.client.auth(username)
+        dlg.destroy()
+
+    def show(self):
+        self.window.show_all()
+        
+
 
 def main():
     client = Client()
     client.connect("", 5555)
-    menu(client)
+    chat = ChatWindow(client)
+    client.window = chat
+    chat.show()
+
+    Gtk.main()
+
 
 
 if __name__ == "__main__":
