@@ -28,21 +28,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkTextView" id="txt_message">
-            <property name="visible">True</property>
-            <property name="can-focus">True</property>
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <property name="vadjustment">adjustment1</property>
-            <property name="editable">False</property>
-          </object>
-          <packing>
-            <property name="left-attach">0</property>
-            <property name="top-attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <!-- n-columns=6 n-rows=1 -->
+          <!-- n-columns=7 n-rows=1 -->
           <object class="GtkGrid">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
@@ -104,6 +90,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <signal name="clicked" handler="btn_trocar_chave_on_click" swapped="no"/>
               </object>
               <packing>
                 <property name="left-attach">4</property>
@@ -123,10 +110,38 @@
                 <property name="top-attach">0</property>
               </packing>
             </child>
+            <child>
+              <object class="GtkLabel" id="lbl_message">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <attributes>
+                  <attribute name="style" value="oblique"/>
+                  <attribute name="weight" value="semibold"/>
+                </attributes>
+              </object>
+              <packing>
+                <property name="left-attach">6</property>
+                <property name="top-attach">0</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="left-attach">0</property>
             <property name="top-attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkTextView" id="txt_message">
+            <property name="visible">True</property>
+            <property name="can-focus">True</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <property name="vadjustment">adjustment1</property>
+            <property name="editable">False</property>
+          </object>
+          <packing>
+            <property name="left-attach">0</property>
+            <property name="top-attach">1</property>
           </packing>
         </child>
       </object>

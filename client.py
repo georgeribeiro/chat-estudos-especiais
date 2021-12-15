@@ -1,26 +1,32 @@
 import pathlib
 import socket
-from sys import builtin_module_names, flags
 from Crypto.PublicKey import RSA
 from Crypto import Random
 from pathlib import Path
-import os
-import platform
 import base64
 import threading
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, Glib
+from typing import List
 
 
 HERE = Path(__file__).resolve().parent
 
 
+class Recipient:
+    def __init__(self, username: str, pubkey: RSA._RSAobj) -> None:
+        self.username = username
+        self.pubkey = pubkey
+        self.messages: List[str] = []
+
+
 class Client:
-    def __init__(self) -> None:
+    def __init__(self, callback = None) -> None:
         self.user: User = None
+        self.callback = callback
         self._server: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._connected = {}
+        self.recipient: Recipient = None
         self.window: ChatWindow = None
         
     def connect(self, host: str, port: int) -> None:
@@ -44,7 +50,7 @@ class Client:
         key = self.user.pubkey.exportKey()
         key64 = base64.b64encode(key).decode()
         data = f"{username} {key64}"
-        self.send("HANDSHAKE", data)
+        self.send("HSREQUEST", data)
 
     def _listen_server(self):
         while True:
@@ -52,8 +58,20 @@ class Client:
             message = data.decode()
             if message:
                 match message.split():
-                    case ["HANDSHAKE", username, pubkey]:
-                        input("nao sei")
+                    case ["HSREQUEST", username, pubkey]:
+                        key = base64.b64decode(pubkey).decode()
+                        self.recipient = Recipient(username, RSA.importKey(key))
+                        mykey = self.user.pubkey.exportKey()
+                        mykey64 = base64.b64encode(mykey).decode()
+                        data = f"{username} {mykey64}"
+                        self.send("HSCONFIRM", data)
+                        self.window.lbl_message.set_text(f"{self.user.username} -> {username}")
+                        self.window.insert_message(f"Conectado ao usuário {username}")
+                    case ["HSCONFIRM", username, pubkey]:
+                        key = base64.b64decode(pubkey).decode()
+                        self.recipient = Recipient(username, RSA.importKey(key))
+                        self.window.lbl_message.set_text(f"{self.user.username} -> {username}")
+                        self.window.insert_message(f"Conectado ao usuário {username}")
                     case ["OK"]:
                         self.window.insert_message(f"Usuário {self.user.username} autenticado com sucesso!")
                     case ["ERROR", message]:
@@ -110,92 +128,6 @@ class User:
         return HERE.joinpath(f"{self.username}.pub")
 
 
-def clear():
-    so = platform.system()
-    os.system('cls' if so == 'Windows' else 'clear')
-
-
-def generate_keys(client: Client):
-    client.user.generate_keys()
-    client.user.save_keys()
-    input("Chaves geradas com sucesso!")
-
-
-def menu(client: Client):
-    menu = """Escolha uma opção:
-1) Autenticar usuário
-2) Gerar chaves RSA
-3) Carregar chave do usuário de arquivo
-4) Imprimir chaves
-5) Trocar chaves com outro usuário
-6) Sair
-
-Selecione uma opção: """
-    while True:
-        clear()
-        if client.user is not None:
-            print(f"Bem vindo {client.user.username}!", end=" ")
-        opt = input(menu)
-        match opt:
-            case "1":
-                while True:
-                    clear()
-                    username = input("Usuário: ")
-                    if username == "":
-                        continue
-                    client.auth(username)
-                    break
-            case "2":
-                if client.user is None:
-                    input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
-                    continue
-                if client.user.exists_keys():
-                    if input("As chaves pública e privada já foram geradas. Deseja excluir e gerá-las novamente? (S/n) ") in ["S", "s"]:
-                        client.user.remove_keys()
-                        generate_keys(client)
-                else:
-                    generate_keys(client)
-            case "3":
-                if client.user is None:
-                    input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
-                    continue
-                if client.user.load_keys():
-                    input('Chaves carregadas com sucesso!')
-                    continue
-                else:
-                    input('Chaves não geradas ainda. Por favor gere pela opção 2!')
-            case "4":
-                if client.user is None:
-                    input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
-                    continue
-                if not client.user.exists_keys():
-                    input('Chaves não geradas ainda. Por favor gere pela opção 2!')
-                    continue
-                if client.user.privkey is None:
-                    input('Chaves não geradas ou não carregadas pelo usuário! Por favor use opção 2 pra gerar ou 3 pra carregar!')
-                    continue
-                clear()
-                input(client.user.print_keys())
-            case "5":
-                if client.user is None:
-                    input("Usuário não autenticado, por favor efetue a autenticação do usuário com a opção 1!")
-                    continue
-                if not client.user.exists_keys():
-                    input('Chaves não geradas ainda. Por favor gere pela opção 2!')
-                    continue
-                if client.user.privkey is None:
-                    input('Chaves não geradas ou não carregadas pelo usuário! Por favor use opção 2 pra gerar ou 3 pra carregar!')
-                    continue
-                while True:
-                    username = input("Digite o nome do outro usuário: ")
-                    if username == "":
-                        continue
-                    break
-                client.handshake(username)
-            case "6":
-                client.close()
-                break
-
 
 class InputDialog(Gtk.Dialog):
     def __init__(self, parent, title="") -> None:
@@ -240,6 +172,7 @@ class ChatWindow:
         self.builder.add_from_file("chat.glade")
         self.window = self.builder.get_object("application")
         self.txt_message = self.builder.get_object("txt_message")
+        self.lbl_message = self.builder.get_object("lbl_message")
         self.builder.connect_signals(self)
 
     def onDestroy(self, *args):
@@ -281,7 +214,6 @@ class ChatWindow:
             dlg.destroy()
             return
         else:
-            self.client.user.remove_keys()
             self.client.user.generate_keys()
             self.client.user.save_keys()
             m = MessageDialog(self.window, "Chaves Geradas com sucesso!")
@@ -294,10 +226,14 @@ class ChatWindow:
             dlg.run()
             dlg.destroy()
             return
-        self.client.user.load_keys()
-        dlg = MessageDialog(self.window, "Chaves carregadas com sucesso!")
-        dlg.run()
-        dlg.destroy()
+        if self.client.user.load_keys():
+            dlg = MessageDialog(self.window, "Chaves carregadas com sucesso!")
+            dlg.run()
+            dlg.destroy()
+        else:
+            dlg = MessageDialog(self.window, "Problema ao carregar chaves. Usuário não possui chaves geradas!")
+            dlg.run()
+            dlg.destroy()
 
     def btn_mostrar_chave_on_click(self, button):
         if self.client.user is None:
@@ -312,6 +248,25 @@ class ChatWindow:
             return
         keys = self.client.user.print_keys()
         self.insert_message(keys)
+
+    def btn_trocar_chave_on_click(self, button):
+        if self.client.user is None:
+            dlg = MessageDialog(self.window, "Usuário não autenticado!")
+            dlg.run()
+            dlg.destroy()
+            return
+        if self.client.user.privkey is None:
+            dlg = MessageDialog(self.window, "Chaves não geradas ou não carregadas!")
+            dlg.run()
+            dlg.destroy()
+            return
+        dlg = InputDialog(self.window, "Nome do usuário:")
+        resp = dlg.run()
+        match resp:
+            case Gtk.ResponseType.OK:
+                username = dlg.entry.get_text()
+                self.client.handshake(username)
+        dlg.destroy()
 
     def show(self):
         self.window.show_all()
