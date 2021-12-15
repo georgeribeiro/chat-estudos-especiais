@@ -44,7 +44,7 @@ class Server:
                     match message.split():
                         case ["AUTH", username]:
                             c.username = username
-                            self.response(c, "OK")
+                            self.response(c, "OK", f"Usuário {username} autenticado com sucesso!")
                         case ["HSREQUEST", username, pubkey]:
                             if c.username == username:
                                 self.response(c, "ERROR", "O usuário não pode trocar chaves consigo mesmo")

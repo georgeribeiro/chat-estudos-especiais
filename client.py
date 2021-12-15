@@ -7,7 +7,7 @@ import base64
 import threading
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Glib
+from gi.repository import Gtk, GLib
 from typing import List
 
 
@@ -65,17 +65,18 @@ class Client:
                         mykey64 = base64.b64encode(mykey).decode()
                         data = f"{username} {mykey64}"
                         self.send("HSCONFIRM", data)
-                        self.window.lbl_message.set_text(f"{self.user.username} -> {username}")
-                        self.window.insert_message(f"Conectado ao usuário {username}")
+                        GLib.idle_add(self.callback, "HSREQUEST", username)
                     case ["HSCONFIRM", username, pubkey]:
                         key = base64.b64decode(pubkey).decode()
                         self.recipient = Recipient(username, RSA.importKey(key))
-                        self.window.lbl_message.set_text(f"{self.user.username} -> {username}")
-                        self.window.insert_message(f"Conectado ao usuário {username}")
-                    case ["OK"]:
-                        self.window.insert_message(f"Usuário {self.user.username} autenticado com sucesso!")
-                    case ["ERROR", message]:
-                        self.window.insert_message(message)
+                        GLib.idle_add(self.callback, "HSCONFIRM", username)
+                    case ["OK", *data]:
+                        msg = " ".join(data)
+                        GLib.idle_add(self.callback, "OK", msg)
+                    case ["ERROR", *data]:
+                        msg = " ".join(data)
+                        GLib.idle_add(self.callback, "ERROR", msg)
+
 
 
 class User:
@@ -173,6 +174,7 @@ class ChatWindow:
         self.window = self.builder.get_object("application")
         self.txt_message = self.builder.get_object("txt_message")
         self.lbl_message = self.builder.get_object("lbl_message")
+        self.client.callback = self.on_client_event
         self.builder.connect_signals(self)
 
     def onDestroy(self, *args):
@@ -267,6 +269,19 @@ class ChatWindow:
                 username = dlg.entry.get_text()
                 self.client.handshake(username)
         dlg.destroy()
+
+    def on_client_event(self, *args):
+        match args:
+            case ["HSREQUEST", username]:
+                self.lbl_message.set_text(f"{self.client.user.username} -> {username}")
+                self.insert_message(f"Conectado ao usuário {username}")
+            case ["HSCONFIRM", username]:
+                self.lbl_message.set_text(f"{self.client.user.username} -> {username}")
+                self.insert_message(f"Conectado ao usuário {username}")
+            case ["OK", message]:
+                self.insert_message(message)
+            case ["ERROR", message]:
+                self.insert_message("ERROR! " + message)
 
     def show(self):
         self.window.show_all()
