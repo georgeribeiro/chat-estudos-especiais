@@ -2,6 +2,11 @@
 <!-- Generated with glade 3.38.2 -->
 <interface>
   <requires lib="gtk+" version="3.24"/>
+  <object class="GtkAdjustment" id="adjustment1">
+    <property name="upper">100</property>
+    <property name="step-increment">1</property>
+    <property name="page-increment">10</property>
+  </object>
   <object class="GtkApplicationWindow" id="application">
     <property name="can-focus">False</property>
     <signal name="destroy" handler="onDestroy" swapped="no"/>
@@ -13,7 +18,7 @@
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
         <child>
-          <object class="GtkEntry">
+          <object class="GtkEntry" id="ent_text">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
           </object>
@@ -28,6 +33,7 @@
             <property name="can-focus">True</property>
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
+            <property name="vadjustment">adjustment1</property>
             <property name="editable">False</property>
           </object>
           <packing>
@@ -59,6 +65,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <signal name="clicked" handler="btn_gerar_rsa_on_click" swapped="no"/>
               </object>
               <packing>
                 <property name="left-attach">1</property>
@@ -71,6 +78,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <signal name="clicked" handler="btn_carregar_chave_on_click" swapped="no"/>
               </object>
               <packing>
                 <property name="left-attach">2</property>
@@ -83,6 +91,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <signal name="clicked" handler="btn_mostrar_chave_on_click" swapped="no"/>
               </object>
               <packing>
                 <property name="left-attach">3</property>

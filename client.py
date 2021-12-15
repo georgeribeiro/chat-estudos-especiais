@@ -196,19 +196,6 @@ Selecione uma opção: """
                 client.close()
                 break
 
-class MessageDialog(Gtk.Dialog):
-    def __init__(self, parent, title="", message = "") -> None:
-        super().__init__(title, transient_for=parent, flags=0)
-        self.add_buttons(
-            Gtk.STOCK_OK, Gtk.ResponseType.OK
-        )
-        self.set_default_size(150, 100)
-        label = Gtk.Label(label=message)
-        box = self.get_content_area()
-        box.add(label)
-        self.set_modal(True)
-        self.show_all()
-
 
 class InputDialog(Gtk.Dialog):
     def __init__(self, parent, title="") -> None:
@@ -222,6 +209,28 @@ class InputDialog(Gtk.Dialog):
         self.set_modal(True)
         box.add(self.entry)
         self.show_all()
+
+
+class MessageDialog(Gtk.MessageDialog):
+    def __init__(self, parent, message: str) -> None:
+        super().__init__(
+            transient_for=parent,
+            flags=0,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text=message
+        )
+
+    
+class QuestionDialog(Gtk.MessageDialog):
+    def __init__(self, parent, message: str) -> None:
+        super().__init__(
+            transient_for=parent,
+            flags=0,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text=message
+        )
 
 
 class ChatWindow:
@@ -252,6 +261,57 @@ class ChatWindow:
                 username = dlg.entry.get_text()
                 self.client.auth(username)
         dlg.destroy()
+
+    def btn_gerar_rsa_on_click(self, button):
+        if self.client.user is None:
+            dlg = MessageDialog(self.window, "Usuário não autenticado!")
+            dlg.run()
+            dlg.destroy()
+            return
+        if self.client.user.exists_keys():
+            dlg = QuestionDialog(self.window, message="As chaves pública e privada já foram geradas. Deseja excluir e gerá-las novamente?")
+            match dlg.run():
+                case Gtk.ResponseType.YES:
+                    self.client.user.remove_keys()
+                    self.client.user.generate_keys()
+                    self.client.user.save_keys()
+                    m = MessageDialog(self.window, "Chaves Geradas com sucesso!")
+                    m.run()
+                    m.destroy()
+            dlg.destroy()
+            return
+        else:
+            self.client.user.remove_keys()
+            self.client.user.generate_keys()
+            self.client.user.save_keys()
+            m = MessageDialog(self.window, "Chaves Geradas com sucesso!")
+            m.run()
+            m.destroy()
+    
+    def btn_carregar_chave_on_click(self, button):
+        if self.client.user is None:
+            dlg = MessageDialog(self.window, "Usuário não autenticado!")
+            dlg.run()
+            dlg.destroy()
+            return
+        self.client.user.load_keys()
+        dlg = MessageDialog(self.window, "Chaves carregadas com sucesso!")
+        dlg.run()
+        dlg.destroy()
+
+    def btn_mostrar_chave_on_click(self, button):
+        if self.client.user is None:
+            dlg = MessageDialog(self.window, "Usuário não autenticado!")
+            dlg.run()
+            dlg.destroy()
+            return
+        if self.client.user.privkey is None:
+            dlg = MessageDialog(self.window, "Chaves não geradas ou não carregadas!")
+            dlg.run()
+            dlg.destroy()
+            return
+        keys = self.client.user.print_keys()
+        self.insert_message(keys)
 
     def show(self):
         self.window.show_all()
