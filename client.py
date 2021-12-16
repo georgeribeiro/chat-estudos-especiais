@@ -39,8 +39,8 @@ class Client:
     def close(self):
         self._server.close()
 
-    def send(self, action: str, data: str):
-        data = " ".join([s for s in (action, data) if s])
+    def send(self, action: str, *data: List[str]):
+        data = "|".join([s for s in (action, *data) if s])
         self._server.sendall(data.encode())
 
     def auth(self, username):
@@ -50,36 +50,42 @@ class Client:
     def handshake(self, username):
         key = self.user.pubkey.exportKey()
         key64 = base64.b64encode(key).decode()
-        data = f"{username} {key64}"
-        self.send("HSREQUEST", data)
+        self.send("HSREQUEST", username, key64)
 
     def send_message(self, message):
-        data = f"{self.recipient.username} {message}"
-        self.send("MSG", data.encode())
+        self.send("MSG", self.recipient.username, message)
 
-    def send_assign_message(self, message):
-        hash = hashlib.sha512(message).hexdigest()
-        assign = self.user.privkey.encrypt(hash)
-        data = f"{self.recipient.username} {message} {assign}"
+    def send_assign_message(self, message: str):
+        hash = hashlib.sha512(message.encode()).hexdigest()
+        signature = self.user.privkey.encrypt(hash, 0)
+        self.send("MSGSIGNED", self.recipient.username, message, signature)
 
     def _listen_server(self):
         while True:
             data = self._server.recv(2048)
             message = data.decode()
             if message:
-                match message.split():
+                match message.split("|"):
                     case ["HSREQUEST", username, pubkey]:
                         key = base64.b64decode(pubkey).decode()
                         self.recipient = Recipient(username, RSA.importKey(key))
                         mykey = self.user.pubkey.exportKey()
                         mykey64 = base64.b64encode(mykey).decode()
-                        data = f"{username} {mykey64}"
-                        self.send("HSCONFIRM", data)
+                        self.send("HSCONFIRM", username, mykey64)
                         GLib.idle_add(self.callback, "HSREQUEST", username)
                     case ["HSCONFIRM", username, pubkey]:
                         key = base64.b64decode(pubkey).decode()
                         self.recipient = Recipient(username, RSA.importKey(key))
                         GLib.idle_add(self.callback, "HSCONFIRM", username)
+                    case ["MSG", username, message]:
+                        GLib.idle_add(self.callback, "MSG", username, message)
+                    case ["MSGSIGNED", username, message, signature]:
+                        hash = hashlib.sha512(message.encode())
+                        s = self.recipient.pubkey.encrypt(hash, 0)
+                        if s == signature:
+                            GLib.idle_add(self.callback, "MSG", username, message)
+                        else:
+                            GLib.idle_add(self.callback, "ERROR", "Mensagem não autêntica!")
                     case ["OK", *data]:
                         msg = " ".join(data)
                         GLib.idle_add(self.callback, "OK", msg)
@@ -283,12 +289,14 @@ class ChatWindow:
             case ["HSCONFIRM", username]:
                 self.lbl_message.set_text(f"{self.client.user.username} -> {username}")
                 self.insert_message(f"Conectado ao usuário {username}")
+            case ["MSG", username, message]:
+                self.insert_message(f"{username}: {message}")
             case ["OK", message]:
                 self.insert_message(message)
             case ["ERROR", message]:
                 self.insert_message("ERROR! " + message)
 
-    def btn_enviar_on_click(self):
+    def btn_enviar_on_click(self, button):
         if self.client.user is None:
             dlg = MessageDialog(self.window, "Usuário não autenticado!")
             dlg.run()
@@ -304,7 +312,8 @@ class ChatWindow:
             dlg.run()
             dlg.destroy()
             return
-        self.client.send_message(self.ent_text.get_text())
+        print(self.ent_text.get_text())
+        self.client.send_assign_message(self.ent_text.get_text())
         
 
     def show(self):

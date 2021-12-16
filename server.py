@@ -31,8 +31,8 @@ class Server:
             self._clients.append(c)
             threading.Thread(target=self._clientthread, args=(c,)).start()
             
-    def response(self, c: Client, code: str, message: str = ""):
-        data = " ".join([s for s in (code, message) if s])
+    def response(self, c: Client, action: str, *data: List[str]):
+        data = "|".join([s for s in (action, *data) if s])
         c.conn.sendall(data.encode())
 
     def _clientthread(self, c: Client):
@@ -41,7 +41,7 @@ class Server:
                 data = c.conn.recv(2048)
                 if data:
                     message = data.decode()
-                    match message.split():
+                    match message.split("|"):
                         case ["AUTH", username]:
                             c.username = username
                             self.response(c, "OK", f"Usuário {username} autenticado com sucesso!")
@@ -51,8 +51,7 @@ class Server:
                                 continue
                             for o in self._clients:
                                 if o.username == username:
-                                    data = f"{c.username} {pubkey}"
-                                    self.response(o, "HSREQUEST", data)
+                                    self.response(o, "HSREQUEST", c.username, pubkey)
                                     break
                             else:
                                 self.response(c, "ERROR", "Usuário não encontrado")
@@ -62,8 +61,7 @@ class Server:
                                 continue
                             for o in self._clients:
                                 if o.username == username:
-                                    data = f"{c.username} {pubkey}"
-                                    self.response(o, "HSCONFIRM", data)
+                                    self.response(o, "HSCONFIRM", c.username, pubkey)
                                     break
                             else:
                                 self.response(c, "ERROR", "Usuário não encontrado")
@@ -73,8 +71,17 @@ class Server:
                                 continue
                             for o in self._clients:
                                 if o.username == username:
-                                    data = f"{c.username} {message}"
-                                    self.response(o, "MSG", data)
+                                    self.response(o, "MSG", c.username, message)
+                                    break
+                            else:
+                                self.response(c, "ERROR", "Usuário não encontrado")
+                        case ["MSGSIGNED", username, message, signature]:
+                            if c.username == username:
+                                self.response(c, "ERROR", "O usuário não pode enviar mensagens para si mesmo")
+                                continue
+                            for o in self._clients:
+                                if o.username == username:
+                                    self.response(o, "MSGSIGNED", c.username, message, signature)
                                     break
                             else:
                                 self.response(c, "ERROR", "Usuário não encontrado")
