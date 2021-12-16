@@ -97,7 +97,7 @@ class Client:
                             GLib.idle_add(self.callback, "ERROR", "Mensagem não autêntica!")
                     case ["MSG", username, message]:
                         encryptor = PKCS1_OAEP.new(self.user.privkey)
-                        data = base64.b64decode(message.encode())
+                        data = base64.b64decode(message)
                         msg: bytes = encryptor.decrypt(data)
                         GLib.idle_add(self.callback, "MSG", username, msg.decode())
                     case ["OK", msg]:
