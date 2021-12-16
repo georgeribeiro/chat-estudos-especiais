@@ -12,7 +12,6 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 from typing import List
-import hashlib
 
 
 HERE = Path(__file__).resolve().parent
@@ -58,14 +57,17 @@ class Client:
     def send_assign_message(self, message: str):
         h = SHA512.new()
         h.update(message.encode())
+        print(f"HASH de envio: {h.hexdigest()}")
         signer = PKCS1_PSS.new(self.user.privkey)
         signature = signer.sign(h)
+        print(f"ASSINATURA DE ENVIO: {signature}")
         encoded_signature = base64.b64encode(signature).decode()
         self.send("MSGSIGNED", self.recipient.username, message, encoded_signature)
 
     def send_cipher_message(self, message: str):
         encrytor = PKCS1_OAEP.new(self.recipient.pubkey)
         msg = encrytor.encrypt(message.encode())
+        print(f"MENSAGEM CIFRADA DE ENVIO: {msg}")
         data = base64.b64encode(msg)
         self.send("MSG", self.recipient.username, data.decode())
 
@@ -89,8 +91,10 @@ class Client:
                     case ["MSGSIGNED", username, message, encoded_signature]:
                         h = SHA512.new()
                         h.update(message.encode())
+                        print(f"HASH de recebimento: {h.hexdigest()}")
                         verifier = PKCS1_PSS.new(self.recipient.pubkey)
                         signature = base64.b64decode(encoded_signature)
+                        print(f"ASSINATURA DE RECEBIMENTO: {signature}")
                         if verifier.verify(h, signature):
                             GLib.idle_add(self.callback, "MSG", username, message)
                         else:
@@ -98,6 +102,7 @@ class Client:
                     case ["MSG", username, message]:
                         encryptor = PKCS1_OAEP.new(self.user.privkey)
                         data = base64.b64decode(message)
+                        print(f"MENSAGEM CIFRADA DE RECEBIMENTO: {data}")
                         msg: bytes = encryptor.decrypt(data)
                         GLib.idle_add(self.callback, "MSG", username, msg.decode())
                     case ["OK", msg]:
