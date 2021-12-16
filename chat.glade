@@ -135,7 +135,7 @@
           </packing>
         </child>
         <child>
-          <!-- n-columns=2 n-rows=1 -->
+          <!-- n-columns=3 n-rows=1 -->
           <object class="GtkGrid">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
@@ -153,15 +153,28 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="btn_enviar">
-                <property name="label" translatable="yes">Enviar</property>
+              <object class="GtkButton" id="btn_assinar_enviar">
+                <property name="label" translatable="yes">Assinar e Enviar</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
-                <signal name="clicked" handler="btn_enviar_on_click" swapped="no"/>
+                <signal name="clicked" handler="btn_assinar_enviar_on_click" swapped="no"/>
               </object>
               <packing>
                 <property name="left-attach">1</property>
+                <property name="top-attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="btn_cifrar_enviar">
+                <property name="label" translatable="yes">Cifrar e Enviar</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="btn_cifrar_enviar_on_click" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left-attach">2</property>
                 <property name="top-attach">0</property>
               </packing>
             </child>

@@ -2,6 +2,9 @@ import pathlib
 import socket
 from Crypto.PublicKey import RSA
 from Crypto import Random
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Signature import PKCS1_PSS
+from Crypto.Hash import SHA512
 from pathlib import Path
 import base64
 import threading
@@ -52,13 +55,19 @@ class Client:
         key64 = base64.b64encode(key).decode()
         self.send("HSREQUEST", username, key64)
 
-    def send_message(self, message):
-        self.send("MSG", self.recipient.username, message)
-
     def send_assign_message(self, message: str):
-        hash = hashlib.sha512(message.encode()).hexdigest()
-        signature = self.user.privkey.encrypt(hash, 0)
-        self.send("MSGSIGNED", self.recipient.username, message, signature)
+        h = SHA512.new()
+        h.update(message.encode())
+        signer = PKCS1_PSS.new(self.user.privkey)
+        signature = signer.sign(h)
+        encoded_signature = base64.b64encode(signature).decode()
+        self.send("MSGSIGNED", self.recipient.username, message, encoded_signature)
+
+    def send_cipher_message(self, message: str):
+        encrytor = PKCS1_OAEP.new(self.recipient.pubkey)
+        msg = encrytor.encrypt(message.encode())
+        data = base64.b64encode(msg)
+        self.send("MSG", self.recipient.username, data.decode())
 
     def _listen_server(self):
         while True:
@@ -77,20 +86,23 @@ class Client:
                         key = base64.b64decode(pubkey).decode()
                         self.recipient = Recipient(username, RSA.importKey(key))
                         GLib.idle_add(self.callback, "HSCONFIRM", username)
-                    case ["MSG", username, message]:
-                        GLib.idle_add(self.callback, "MSG", username, message)
-                    case ["MSGSIGNED", username, message, signature]:
-                        hash = hashlib.sha512(message.encode())
-                        s = self.recipient.pubkey.encrypt(hash, 0)
-                        if s == signature:
+                    case ["MSGSIGNED", username, message, encoded_signature]:
+                        h = SHA512.new()
+                        h.update(message.encode())
+                        verifier = PKCS1_PSS.new(self.recipient.pubkey)
+                        signature = base64.b64decode(encoded_signature)
+                        if verifier.verify(h, signature):
                             GLib.idle_add(self.callback, "MSG", username, message)
                         else:
                             GLib.idle_add(self.callback, "ERROR", "Mensagem não autêntica!")
-                    case ["OK", *data]:
-                        msg = " ".join(data)
+                    case ["MSG", username, message]:
+                        encryptor = PKCS1_OAEP.new(self.user.privkey)
+                        data = base64.b64decode(message.encode())
+                        msg: bytes = encryptor.decrypt(data)
+                        GLib.idle_add(self.callback, "MSG", username, msg.decode())
+                    case ["OK", msg]:
                         GLib.idle_add(self.callback, "OK", msg)
-                    case ["ERROR", *data]:
-                        msg = " ".join(data)
+                    case ["ERROR", msg]:
                         GLib.idle_add(self.callback, "ERROR", msg)
 
 
@@ -206,7 +218,7 @@ class ChatWindow:
         Gtk.main_quit()
 
     def btn_autenticar_on_click(self, button):
-        dlg = InputDialog(self.window, "Nome do usuário:")
+        dlg = InputDialog(self.window, "Nome do usuário")
         resp = dlg.run()
         match resp:
             case Gtk.ResponseType.OK:
@@ -227,7 +239,7 @@ class ChatWindow:
                     self.client.user.remove_keys()
                     self.client.user.generate_keys()
                     self.client.user.save_keys()
-                    self.insert_message("Chaves Geradas com sucesso!")
+                    self.insert_message("Chaves geradas com sucesso!")
             dlg.destroy()
             return
         else:
@@ -242,7 +254,7 @@ class ChatWindow:
             dlg.destroy()
             return
         if self.client.user.load_keys():
-            self.insert_message("Chaves Geradas com sucesso!")
+            self.insert_message("Chaves carregadas com sucesso!")
         else:
             dlg = MessageDialog(self.window, "Problema ao carregar chaves. Usuário não possui chaves geradas!")
             dlg.run()
@@ -273,7 +285,7 @@ class ChatWindow:
             dlg.run()
             dlg.destroy()
             return
-        dlg = InputDialog(self.window, "Nome do usuário:")
+        dlg = InputDialog(self.window, "Nome do usuário")
         resp = dlg.run()
         match resp:
             case Gtk.ResponseType.OK:
@@ -296,7 +308,7 @@ class ChatWindow:
             case ["ERROR", message]:
                 self.insert_message("ERROR! " + message)
 
-    def btn_enviar_on_click(self, button):
+    def btn_assinar_enviar_on_click(self, button):
         if self.client.user is None:
             dlg = MessageDialog(self.window, "Usuário não autenticado!")
             dlg.run()
@@ -312,8 +324,25 @@ class ChatWindow:
             dlg.run()
             dlg.destroy()
             return
-        print(self.ent_text.get_text())
         self.client.send_assign_message(self.ent_text.get_text())
+
+    def btn_cifrar_enviar_on_click(self, button):
+        if self.client.user is None:
+            dlg = MessageDialog(self.window, "Usuário não autenticado!")
+            dlg.run()
+            dlg.destroy()
+            return
+        if self.client.user.privkey is None:
+            dlg = MessageDialog(self.window, "Chaves não geradas ou não carregadas!")
+            dlg.run()
+            dlg.destroy()
+            return
+        if self.client.recipient is None:
+            dlg = MessageDialog(self.window, "Usuário não conectado a outro usuário!")
+            dlg.run()
+            dlg.destroy()
+            return
+        self.client.send_cipher_message(self.ent_text.get_text())
         
 
     def show(self):
