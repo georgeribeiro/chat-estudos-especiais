@@ -67,6 +67,17 @@ class Server:
                                     break
                             else:
                                 self.response(c, "ERROR", "Usuário não encontrado")
+                        case ["MSG", username, message]:
+                            if c.username == username:
+                                self.response(c, "ERROR", "O usuário não pode enviar mensagens para si mesmo")
+                                continue
+                            for o in self._clients:
+                                if o.username == username:
+                                    data = f"{c.username} {message}"
+                                    self.response(o, "MSG", data)
+                                    break
+                            else:
+                                self.response(c, "ERROR", "Usuário não encontrado")
                         case _:
                             self.response(c, "ERROR", "Ação inválida")
                 else:

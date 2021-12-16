@@ -9,6 +9,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 from typing import List
+import hashlib
 
 
 HERE = Path(__file__).resolve().parent
@@ -51,6 +52,15 @@ class Client:
         key64 = base64.b64encode(key).decode()
         data = f"{username} {key64}"
         self.send("HSREQUEST", data)
+
+    def send_message(self, message):
+        data = f"{self.recipient.username} {message}"
+        self.send("MSG", data.encode())
+
+    def send_assign_message(self, message):
+        hash = hashlib.sha512(message).hexdigest()
+        assign = self.user.privkey.encrypt(hash)
+        data = f"{self.recipient.username} {message} {assign}"
 
     def _listen_server(self):
         while True:
@@ -174,6 +184,7 @@ class ChatWindow:
         self.window = self.builder.get_object("application")
         self.txt_message = self.builder.get_object("txt_message")
         self.lbl_message = self.builder.get_object("lbl_message")
+        self.ent_text = self.builder.get_object("ent_text")
         self.client.callback = self.on_client_event
         self.builder.connect_signals(self)
 
@@ -210,17 +221,13 @@ class ChatWindow:
                     self.client.user.remove_keys()
                     self.client.user.generate_keys()
                     self.client.user.save_keys()
-                    m = MessageDialog(self.window, "Chaves Geradas com sucesso!")
-                    m.run()
-                    m.destroy()
+                    self.insert_message("Chaves Geradas com sucesso!")
             dlg.destroy()
             return
         else:
             self.client.user.generate_keys()
             self.client.user.save_keys()
-            m = MessageDialog(self.window, "Chaves Geradas com sucesso!")
-            m.run()
-            m.destroy()
+            self.insert_message("Chaves Geradas com sucesso!")
     
     def btn_carregar_chave_on_click(self, button):
         if self.client.user is None:
@@ -229,9 +236,7 @@ class ChatWindow:
             dlg.destroy()
             return
         if self.client.user.load_keys():
-            dlg = MessageDialog(self.window, "Chaves carregadas com sucesso!")
-            dlg.run()
-            dlg.destroy()
+            self.insert_message("Chaves Geradas com sucesso!")
         else:
             dlg = MessageDialog(self.window, "Problema ao carregar chaves. Usuário não possui chaves geradas!")
             dlg.run()
@@ -282,6 +287,25 @@ class ChatWindow:
                 self.insert_message(message)
             case ["ERROR", message]:
                 self.insert_message("ERROR! " + message)
+
+    def btn_enviar_on_click(self):
+        if self.client.user is None:
+            dlg = MessageDialog(self.window, "Usuário não autenticado!")
+            dlg.run()
+            dlg.destroy()
+            return
+        if self.client.user.privkey is None:
+            dlg = MessageDialog(self.window, "Chaves não geradas ou não carregadas!")
+            dlg.run()
+            dlg.destroy()
+            return
+        if self.client.recipient is None:
+            dlg = MessageDialog(self.window, "Usuário não conectado a outro usuário!")
+            dlg.run()
+            dlg.destroy()
+            return
+        self.client.send_message(self.ent_text.get_text())
+        
 
     def show(self):
         self.window.show_all()
